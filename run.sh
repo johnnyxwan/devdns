@@ -1,7 +1,7 @@
 #!/bin/bash
 [[ -n "$DEBUG" ]] && set -x
 domain="${DNS_DOMAIN:-test}"
-fallbackdns="${FALLBACK_DNS:-8.8.8.8}"
+fallbackdns="${FALLBACK_DNS}"
 hostmachineip="${HOSTMACHINE_IP:-172.17.0.1}"
 network="${NETWORK:-bridge}"
 naming="${NAMING:-default}"
@@ -180,9 +180,14 @@ EOF
     echo "Host machine resolv.conf configured to use devdns at ${devdns_ip}"
   fi
 }
-set_fallback_dns(){
-  sed -i "s/{{FALLBACK_DNS}}/${fallbackdns}/" "/etc/dnsmasq.conf"
-  echo "Fallback DNS set to ${fallbackdns}"
+set_fallback_dns() {
+  if [[ -z "$fallbackdns" ]]; then
+    sed -i "/{{FALLBACK_DNS}}/d" "/etc/dnsmasq.conf"
+    echo "Fallback DNS is empty. Disable fallback."
+  else
+    sed -i "s/{{FALLBACK_DNS}}/server=${fallbackdns}/" "/etc/dnsmasq.conf"
+    echo "Fallback DNS set to ${fallbackdns}"
+  fi
 }
 print_startup_msg(){
   echo -e "${YELLOW}"
