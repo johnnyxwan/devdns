@@ -3,6 +3,7 @@
 domain="${DNS_DOMAIN:-test}"
 fallbackdns="${FALLBACK_DNS}"
 hostmachineip="${HOSTMACHINE_IP:-172.17.0.1}"
+wildcardip="${WILDCARD_IP}"
 network="${NETWORK:-bridge}"
 naming="${NAMING:-default}"
 read -r -a extrahosts <<< "$EXTRA_HOSTS"
@@ -159,8 +160,13 @@ set_extra_records(){
   done
 }
 add_wildcard_record(){
-  echo "address=/.${domain}/${hostmachineip}" > "${dnsmasq_confdir}hostmachine.conf"
+  echo "address=/${domain}/${hostmachineip}" > "${dnsmasq_confdir}hostmachine.conf"
   echo -e "${GREEN}+ Added *.${domain} → ${hostmachineip}${RESET}"
+
+  if [[ -n "$wildcardip" ]]; then
+    echo "address=/.${domain}/${wildcardip}" > "${dnsmasq_confdir}hostmachine.conf"
+    echo -e "${GREEN}+ Added *.${domain} → ${wildcardip}${RESET}"
+  fi
 }
 ensure_dirs(){
   mkdir -p "$dnsmasq_hostsdir"
