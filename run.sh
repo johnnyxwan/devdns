@@ -1,9 +1,10 @@
 #!/bin/bash
 [[ -n "$DEBUG" ]] && set -x
 domain="${DNS_DOMAIN:-test}"
-fallbackdns="${FALLBACK_DNS}"
+hostmachinename="${HOSTMACHINE_NAME}"
 hostmachineip="${HOSTMACHINE_IP:-172.17.0.1}"
 wildcardip="${WILDCARD_IP}"
+fallbackdns="${FALLBACK_DNS}"
 network="${NETWORK:-bridge}"
 naming="${NAMING:-default}"
 read -r -a extrahosts <<< "$EXTRA_HOSTS"
@@ -129,6 +130,7 @@ setup_listener(){
     case "$event" in
       start|rename)
         set_container_record "$container"
+        update_zone_record
         reload_dnsmasq
         ;;
       die)
@@ -139,6 +141,7 @@ setup_listener(){
         del_container_record "$safename"
         sleep 1
         find_and_set_prev_record "$safename"
+        update_zone_record
         reload_dnsmasq
         ;;
     esac
@@ -159,14 +162,18 @@ set_extra_records(){
     set_record "$host" "$ip"
   done
 }
-add_wildcard_record(){
-  echo "address=/${domain}/${hostmachineip}" > "${dnsmasq_confdir}hostmachine.conf"
-  echo -e "${GREEN}+ Added *.${domain} → ${hostmachineip}${RESET}"
-
+add_host_record(){
+  set_record "$hostmachinename" "$hostmachineip"
+}
+update_zone_record(){
+  soa_serial=$(date +%s)
+  echo "auth-server=${hostmachinename}" > "${dnsmasq_confdir}zone.conf"
+  echo "auth-zone=${domain}" >> "${dnsmasq_confdir}zone.conf"
+  echo "auth-soa=${soa_serial},hostmaster.${domain}" >> "${dnsmasq_confdir}zone.conf"
   if [[ -n "$wildcardip" ]]; then
-    echo "address=/.${domain}/${wildcardip}" > "${dnsmasq_confdir}hostmachine.conf"
-    echo -e "${GREEN}+ Added *.${domain} → ${wildcardip}${RESET}"
+    echo "address=/.${domain}/${wildcardip}" >> "${dnsmasq_confdir}zone.conf"
   fi
+  echo "Updated zone file"
 }
 ensure_dirs(){
   mkdir -p "$dnsmasq_hostsdir"
@@ -218,7 +225,8 @@ print_startup_msg
 set_fallback_dns
 set_resolvconf
 ensure_dirs
-add_wildcard_record
+add_host_record
+update_zone_record
 set_extra_records
 start_dnsmasq
 set +Eeo pipefail
